@@ -4,7 +4,7 @@ format: docx
 editor: visual
 ---
 
-# Packages used
+Packages used
 
 ```{r}
 pacman::p_load(pacman,
@@ -36,9 +36,9 @@ train <-
   select(-c(Id, MiscFeature))
 ```
 
-## Explore Cat and Num features independently
+## Explore Cat and Num Features
 
-1.  Preprocess
+1.  [Preprocess]{.underline}
 
 -   Create a function to split numeric and categorical features into num_cols and cat_cols variables from the train dataset.
 
@@ -78,9 +78,9 @@ result <- num_cat_split(train)
 
 # Sequence of Steps
 
-## Explore label
+## Label Exploration
 
-### Label's summary
+### Summary
 
 ```{r}
 # This function provides skew and kurtosis
@@ -93,7 +93,7 @@ train %>%
   skim()
 ```
 
-### Visualize Label Distribution
+### Visualize Label's Distribution
 
 ```{r}
 # mu <- mean(train$SalePrice)
@@ -123,7 +123,7 @@ ggplot(train, aes(x = SalePrice)) +
   
 ```
 
-### Examine Normality of SalePrice
+### Normality Examination
 
 ```{r}
 qqnorm(train$SalePrice)
@@ -160,9 +160,7 @@ qqline(train$SalePrice)
 
 -   We will apply the log transformation below
 
-## Explore Features
-
-#### NAs detection func
+## Features Exploration
 
 -   Create a function to view missing values
 
@@ -181,7 +179,9 @@ Since we do not have to deal with issues of outliers in fixing missing values of
 
 Since we do not have to deal with issues of outliers in fixing missing values of categorical features, so we would start with categorical features first.
 
-## Categorical Features
+### Numeric - Categorical Split 
+
+-   It's easier to split
 
 Import new data that Juliette has fixed into R, and apply log transformation on the label.
 
@@ -201,7 +201,7 @@ train_new <- num_cat_split(train)
 
 ```
 
-Store num and cat features into train_num and train_cat
+Store numeric and categorical features into train_num and train_cat
 
 ```{r}
 train_num <- train_new$train_num
@@ -209,20 +209,7 @@ train_num <- train_new$train_num
 train_cat <- train_new$train_cat
 ```
 
-Check missing values of these new num and cat features
-
-```{r}
-
-train_cat %>% 
-  examine_na()
-
-```
-
-All categorical features have been handled by Juliette using excel
-
-Since we do not have much information about the cat variables rn, let's work on numeric features first
-
-## Numeric Features
+### Numeric Features
 
 First, let's grab a summary of the numeric data
 
@@ -231,9 +218,11 @@ train_num %>%
   skim()
 ```
 
--   Let make a quick correlation plot to make it easy to demonstrate the relationship between numeric variables and the label
+-   Let make a quick correlation plot to make it easy to understand the relationship between numeric variables and the label
 
-#### Correlation Graph 1
+#### Raw Values Correlation
+
+#### Corr Graph 1
 
 ```{r}
 spearman <- function(frame, features) {
@@ -273,9 +262,9 @@ Why would we use spearman correlation?
 
 [Spearman's Rank Correlation - GeeksforGeeks](https://www.geeksforgeeks.org/spearmans-rank-correlation/)
 
-Next, we might also want to explore correlation between top variables that have high correlation with Sales Price.
+Next, we might also want to explore correlation between top variables that have high correlation with SalePrice.
 
-#### Correlation Graph 2
+#### Corr Graph 2
 
 ```{r}
 top_corr <- c('SalePrice', 
@@ -302,7 +291,7 @@ select(all_of(top_corr)) %>%
            tl.srt = 45)
 ```
 
-### Missing Values
+#### Missing Values
 
 -   There are three num variables that contain NAs.
 
@@ -329,7 +318,7 @@ num_cols <- num_cols[-c(8, 25,2, 31)]
 
 Okay, so all missing values have been resolved.
 
-### Outliers
+#### Outliers
 
 -   First, I would like to convert YearBuilt into HouseAge, and YrSold to Yrs_Since_Bought
 
@@ -452,65 +441,23 @@ outlier_fixed_num %<>%
 plot_individual_boxplot(outlier_fixed_num)
 
 plot_individual_hist(outlier_fixed_num)
+
 ```
 
-Obtain the summary of the data
+### Categorical Features
 
 ```{r}
-outlier_fixed_num %>% 
-  skim
-```
-
-# Princicpal Component Analysis
-
--   There is a few group that we would like to examine their principal component analysis
-
--   Quality: c(ExterQual, ExterCond, HeatingQC, KitchenQual, FireplaceQu, PoolQC, Fence, SaleCondition, Fireplaces, OverallQual, OverallCond)
-
--   House size-related: c(LotArea, MasVnrArea, X1stFlrSF, X2ndFlrSF, GRLivArea, BsmtFinSF1, BsmtFinSF2, BsmtUnfSf, TotalBsmtSF, LotArea, GarageArea)
-
-```{r}
-comp_quality <-
-  c(
-    'ExterQual',
-    'ExterCond',
-    'HeatingQC',
-    'KitchenQual',
-    'FireplaceQu',
-    'PoolQC',
-    'SaleCondition',
-    'Fireplaces',
-    'OverallQual',
-    'OverallCond'
-  )
-
-comp_size <-
-  c(
-    'LotArea',
-    'MasVnrArea',
-    'X1stFlrSF',
-    'X2ndFlrSF',
-    'GRLivArea',
-    'BsmtFinSF1',
-    'BsmtFinSF2',
-    'BsmtUnfSf',
-    'TotalBsmtSF',
-    'LotArea',
-    'GarageArea'
-  )
 
 # First, we need to rejoin cat and num data together
 full_data <- outlier_fixed_num %>% 
   select(-SalePrice) %>% # SalePrice is already in train_cat
   cbind(train_cat) %>% 
   as_tibble()
-
-  
 ```
 
-### Ordinal variables
+#### Ordinal variables
 
-Convert some categorical variables to ordinal numerical variables
+Convert some categorical variables (features that have classes as rank or quality) to ordinal numerical variables
 
 ```{r}
 # ExterQual 
@@ -522,7 +469,9 @@ full_data$ExterQual <- fct_recode(full_data$ExterQual,
                                   '4' = 'Ex') %>% 
   as.character() %>% 
   as.numeric()
+
 # Extercond
+
 full_data$ExterCond <- fct_recode(full_data$ExterCond, 
                                   '1' = 'Fa',
                                   '1' = 'Po',
@@ -531,6 +480,7 @@ full_data$ExterCond <- fct_recode(full_data$ExterCond,
                                   '4' = 'Ex') %>% 
   as.character() %>% 
   as.numeric()
+
 # HeatingQC
 
 full_data$HeatingQC <- fct_recode(full_data$HeatingQC, 
@@ -541,7 +491,9 @@ full_data$HeatingQC <- fct_recode(full_data$HeatingQC,
                                   '5' = 'Ex') %>% 
   as.character() %>% 
   as.numeric()
+
 # KitchenQual
+
 full_data$KitchenQual <- fct_recode(full_data$KitchenQual, 
                                   '1' = 'Fa',
                                   '2' = 'TA',
@@ -551,6 +503,7 @@ full_data$KitchenQual <- fct_recode(full_data$KitchenQual,
   as.numeric()
 
 #PoolQC
+
 full_data$PoolQC <- fct_recode(full_data$PoolQC,
                                '1' = 'No Pool',
                                '2' = 'Gd',
@@ -559,7 +512,9 @@ full_data$PoolQC <- fct_recode(full_data$PoolQC,
                                ) %>% 
   as.character() %>% 
   as.numeric()
+
 #FireplaceQu
+
 full_data$FireplaceQu <- fct_recode(full_data$FireplaceQu, 
                                   '1' = 'No Fireplace',
                                   '1' = 'Po',
@@ -571,6 +526,7 @@ full_data$FireplaceQu <- fct_recode(full_data$FireplaceQu,
   as.numeric()
 
 # SaleCondition
+
 full_data$SaleCondition <- fct_recode(
   full_data$SaleCondition,
   '1' = 'AdjLand',
@@ -583,6 +539,7 @@ full_data$SaleCondition <- fct_recode(
   as.numeric()
 
 # GarageFinish
+
 full_data$GarageFinish <- fct_recode(full_data$GarageFinish,
                                '1' = 'No Garage',
                                '2' = 'Unf',
@@ -615,7 +572,9 @@ full_data$BsmtCond<- fct_recode(full_data$BsmtCond,
                                ) %>% 
   as.character() %>% 
   as.numeric()
+
 # BsmtExposure 
+
 full_data$BsmtExposure<- fct_recode(full_data$BsmtExposure,
                                '1' = 'No Bsmt',
                                '2' = 'No',
@@ -629,13 +588,8 @@ full_data$BsmtExposure<- fct_recode(full_data$BsmtExposure,
 
 ```
 
-# Lasso regresseion
 
--   Before applying the lasso, we need to convert all categorical to dummy variables.
-
--   We have already converted some of the features in the categorical variables group into ordinal variables, only part of the features in the train_cat should be converted into dummy variables
-
-### Dummy variables
+#### Dummy variables
 
 ```{r}
 
@@ -692,9 +646,9 @@ dummy_vars %<>%
 
 ```
 
-### Scaling numeric features.
+### Features Standardization
 
--   In order to bring all the numeric features to the same scales, we would standardize all numeric and ordinal variables.
+-   In order to bring all the numeric features to the same scales, we would standardize all numeric and ordinal variables (which have been transformed to numeric).
 
 ```{r}
 SalePrice <- full_data$SalePrice
@@ -712,7 +666,7 @@ scaled_full_data <- full_data %>%
 
 -   For some numeric features, their values are changed to 0 when we performed the outliers fixing previously, which now lead to NAs after the scaling process.
 
--   Most of these features do not appear to be very helpful for the prediction anyway, so we decide to remove them
+-  Nevertheless, most of these features do not appear to be very helpful for the prediction anyway, so we decide to remove them.
 
 ```{r}
 
@@ -727,12 +681,24 @@ scaled_full_data <- scaled_full_data[, !na_columns]
 
 -   After we have scaled the numeric features, we can merge the dummy variables data frame back to the numeric variables data frame.
 
+## Numeric - Categorical Merge
+
 ```{r}
 full_data <- cbind(scaled_full_data, 
                    dummy_vars)
 ```
 
-### Running Lasso Regression
+# Lasso regression
+
+-   Least Absolute Shrinkage and Selection Operator
+-   This method helps reduce the dimensionality of a dataset and prevent overfitting. 
+-   It works by adding a penalty term to the linear regresion objective funciton, which effectively shrinks some of the model's coefficient to **zero**
+
+-   Before applying the lasso, we need to convert all categorical to dummy variables.
+
+-   We have already converted some of the features in the categorical variables group into ordinal variables, only part of the features in the train_cat should be converted into dummy variables
+
+## Execute Lasso Model
 
 ```{r}
 
@@ -766,6 +732,12 @@ final_lasso_model <- glmnet(predictors,
                             alpha = 1,
                             standardize = F, 
                             lambda = best_lambda)
+```
+
+
+## Variables Retained
+
+```{r}
 
 # Extract coefficients from the new model 
 lasso_coefficients <- coef(final_lasso_model)
@@ -776,9 +748,10 @@ lasso_retained_var <- (lasso_coefficients %>%
   data.frame() %>%
   filter(s0!=0) %>% 
   row.names())[-1]
+
 ```
 
-# Post-Scaled correlation
+# Post-Scaled Correlation
 
 -   Here, we would run the correlation matrix again on the scaled data, using only numeric features from the best variables extracted from lasso regression.
 
@@ -914,7 +887,7 @@ library(sjmisc)
 library(sjlabelled)
 ```
 
-### Linear Reg Auto func
+### Auto Linear Regression
 
 Custom function to automate regression model fitting
 
@@ -940,7 +913,7 @@ automate_regression <- function(data,variables) {
 
 ```
 
-### Export Output func
+### Export Output
 
 -   Please provide the function with the list of variables and the list that stores the all the models.
 
@@ -1078,5 +1051,3 @@ output_model_5 <- export_output(model_5, variable_5)
 
 -   Initial Adjusted R squared: 0.294
 -   Highest Adjusted R squared: 0.769
-
-
