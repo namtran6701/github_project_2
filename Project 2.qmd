@@ -901,7 +901,8 @@ full_data %<>%
 -   Variables used to test could be either key factors, important factors retained from lasso regression, and principal components of important factors.
 
 -   **In the report, we could describe more about the reason why we chose this features.**
--   We would only add features that we consider as very strong to the model last, not at the begninning. 
+
+-   We would only add features that we consider as very strong to the model last, not at the begninning.
 
 ## Function's Customization
 
@@ -1028,6 +1029,7 @@ output_model_3 <- export_output(model_3, variable_3)
 -   The model see a big jump in Adjusted R squared when CentralAirY was added
 
 -   Initial Adjsuted R squared: 0.345
+
 -   Highest Adjusted Rsquared: 0.766
 
 ## Regression 4: Garage
@@ -1055,7 +1057,6 @@ output_model_4 <- export_output(model_4, variable_4)
 -   Highest Adjusted R squared: 0.825
 -   ExterCond is not significant
 
-
 ## Regression 5: TotRmsAbvGrd
 
 ```{r}
@@ -1077,3 +1078,9 @@ output_model_5 <- export_output(model_5, variable_5)
 
 -   Initial Adjusted R squared: 0.294
 -   Highest Adjusted R squared: 0.769
+
+Test command line
+
+```{r}
+print('hello word')
+```
