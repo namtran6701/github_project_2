@@ -1079,8 +1079,4 @@ output_model_5 <- export_output(model_5, variable_5)
 -   Initial Adjusted R squared: 0.294
 -   Highest Adjusted R squared: 0.769
 
-Test command line
 
-```{r}
-print('hello word')
-```
