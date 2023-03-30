@@ -1,0 +1,39 @@
+---
+title: "Project 2"
+format: docx
+editor: visual
+---
+
+# Import Packages
+
+```{r}
+pacman::p_load(pacman,
+               tidyverse, 
+               magrittr, 
+               skimr, 
+               psych)
+```
+
+# Import data
+
+```{r}
+train <- read.csv('train.csv', 
+                  stringsAsFactors = T)
+
+fix_na <- function(feature, string_replace){
+  vectorized_col <- as.vector(train[,feature])
+  fixed_feature <- replace_na(vectorized_col, string_replace)
+  return(fixed_feature)
+}
+
+# Example 
+train$MasVnrType <- 
+  fix_na('MasVnrType', 'Cblock') %>% 
+  as.factor()
+
+
+train$MasVnrType %>% summary()
+
+```
+
+\

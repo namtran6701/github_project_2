@@ -1,0 +1,1079 @@
+---
+title: "Project 2"
+format: docx
+editor: visual
+---
+
+# Packages used
+
+```{r}
+pacman::p_load(pacman,
+               tidyverse, 
+               magrittr,
+               skimr,
+               psych, 
+               DataExplorer,
+               explore,
+               ggthemes, 
+               plotly, 
+               corrplot,
+               Matrix,
+               glmnet)
+
+options(scipen = 999)
+```
+
+# Data Epxloration
+
+## Importing data
+
+```{r}
+# Import data and remove the column Id and the MiscFeature column
+train <- 
+  read.csv('train_ryan.csv',
+           stringsAsFactors = T) %>% 
+  as_tibble() %>% 
+  select(-c(Id, MiscFeature))
+```
+
+## Explore Cat and Num features independently
+
+1.  Preprocess
+
+-   Create a function to split numeric and categorical features into num_cols and cat_cols variables from the train dataset.
+
+-   Results will be stored in a list, to get access to the train_num and train_cat, we would have to \$ the list
+
+```{r}
+
+# Get numeric feature names 
+num_cols <- read.csv('num_feature_train.csv') %>%
+    select(-Id) %>% 
+    colnames() 
+
+num_cat_split <- function(data){
+    
+  # Get numeric feature data frame
+  train_num <- data %>% 
+    select(all_of(num_cols))
+  
+  # Get cat feature names
+  cat_cols <- read.csv('cat_features_test.csv') %>% 
+    select(-MiscFeature) %>% 
+    colnames()
+  
+  # Create categorical feature data frame
+  train_cat <- data %>% 
+    select(all_of(cat_cols),SalePrice)
+  
+  return(list(train_num = train_num, train_cat = train_cat))
+}
+```
+
+Next, use the function split the train data into numerical and categorical datasets
+
+```{r}
+result <- num_cat_split(train)
+```
+
+# Sequence of Steps
+
+## Explore label
+
+### Label's summary
+
+```{r}
+# This function provides skew and kurtosis
+train %>% 
+  pull(SalePrice) %>% 
+  psych::describe()
+
+train %>% 
+  select(SalePrice) %>% 
+  skim()
+```
+
+### Visualize Label Distribution
+
+```{r}
+# mu <- mean(train$SalePrice)
+# sigma <- sd(train$SalePrice)
+# 
+# # Generate values from a normal distribution
+# normal_vals <- data.frame(x = rnorm(10000, mu, sigma))
+
+ggplot(train, aes(x = SalePrice)) + 
+  geom_histogram(aes(y = ..density..),
+                 binwidth = 12000,
+                 color = "white",
+                 fill = "black") +
+  geom_density(alpha = .2, fill="blue") +
+  # geom_line(data = normal_vals,
+  #           aes(x = x,
+  #               y = ..density..),
+  #           stat = "density",
+  #           color = "red") +
+  labs(title = "Distribution of Sale Prices", 
+       x = "Sale Price",
+       y = "Density") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, size = 18), 
+        axis.title = element_text(size = 10), 
+        axis.text=element_text(size=8))
+  
+```
+
+### Examine Normality of SalePrice
+
+```{r}
+qqnorm(train$SalePrice)
+qqline(train$SalePrice)
+# The reference line passess through the first and the 3rd quartiles of the label. 
+
+```
+
+-   A few things we can observe from the graphs and the summary table:
+
+    -   The label is numeric
+
+    -   No missing value
+
+    -   No negative prices
+
+    -   Not normally distributed
+
+    -   The majority of houses are sold between \$120,000 and \$230,000 (Percentile 25 - 75)
+
+    -   A kurtosis greater than 3 and a positive skewness suggest that the data has a tail and right skewed, as we can also see from the graph.
+
+[Should we apply log transformation on the label?]{.underline}
+
+### Log Transformation
+
+-   A highly skewed label with fat tails have a high probability to result non-nomally distributed of residuals or heteroscedasticity. As a result, we may want to apply log transformation in such cases. 
+
+-   However, log transformation may make it hard to interpret the result since coefficient of predictors show their effects on log-transformed label.
+
+[Let's apply log transformation on the label]{.underline}
+
+-   Making the distribution more symmetric. Since the target variable is quite heavily skewed. A log transformation can make the distribution more symmetric and closer to a normal distribution, which can improve the performance of linear regression.
+
+-   We will apply the log transformation below
+
+## Explore Features
+
+#### NAs detection func
+
+-   Create a function to view missing values
+
+```{r}
+examine_na <- function(data){
+  data %>% 
+  skim() %>% 
+  filter(n_missing > 0) %>% 
+  select(skim_variable, n_missing)
+}
+```
+
+-   There are total 14 variables with missing values.
+
+Since we do not have to deal with issues of outliers in fixing missing values of categorical features, so we would start with categorical features first.
+
+Since we do not have to deal with issues of outliers in fixing missing values of categorical features, so we would start with categorical features first.
+
+## Categorical Features
+
+Import new data that Juliette has fixed into R, and apply log transformation on the label.
+
+```{r}
+train <- read.csv('march_17th_train.csv', 
+                      stringsAsFactors = T) %>% 
+  as_tibble() %>% 
+  select(-c(Id, MiscFeature)) %>% 
+  mutate(SalePrice = log(SalePrice))
+```
+
+Split categorical and numerical features
+
+```{r}
+
+train_new <- num_cat_split(train)
+
+```
+
+Store num and cat features into train_num and train_cat
+
+```{r}
+train_num <- train_new$train_num
+
+train_cat <- train_new$train_cat
+```
+
+Check missing values of these new num and cat features
+
+```{r}
+
+train_cat %>% 
+  examine_na()
+
+```
+
+All categorical features have been handled by Juliette using excel
+
+Since we do not have much information about the cat variables rn, let's work on numeric features first
+
+## Numeric Features
+
+First, let's grab a summary of the numeric data
+
+```{r}
+train_num %>% 
+  skim()
+```
+
+-   Let make a quick correlation plot to make it easy to demonstrate the relationship between numeric variables and the label
+
+#### Correlation Graph 1
+
+```{r}
+spearman <- function(frame, features) {
+  spr <- data.frame(feature = features,
+                    stringsAsFactors = FALSE)
+  
+  spr$spearman <- sapply(features, 
+                         function(f) cor(frame[[f]],
+                                         frame$SalePrice,
+                                         method = "spearman",
+                                         use = 'pairwise.complete.obs'))
+  
+  spr <- spr[order(spr$spearman),]
+  
+  ggplot(spr, 
+         aes(x = spearman, 
+             y = reorder(feature, spearman))) + 
+    geom_bar(stat = "identity") +
+    theme_minimal() +
+    xlab("Correlation") +
+    ylab("Feature") +
+    ggtitle(label = 'Spearman Correlation Between Variables and Sales Price')
+}
+
+spearman(train_num, num_cols)
+```
+
+Why would we use spearman correlation?
+
+-   It is based on the **ranked values of the variables** rather than their raw values, making it less sensitive to outliers and more appropriate for non-linear relationships than traditional correlation method of Pearson.
+
+-   This type of correlation is particularly useful when one or both of the variables are not normally distributed, which is the case in our dataset.
+
+-   It also helps to identify monotonic relationships, which are relationships where the variables consistently increase or decrease together but not necessarily at a constant rate.
+
+![](images/image-686245336.png)
+
+[Spearman's Rank Correlation - GeeksforGeeks](https://www.geeksforgeeks.org/spearmans-rank-correlation/)
+
+Next, we might also want to explore correlation between top variables that have high correlation with Sales Price.
+
+#### Correlation Graph 2
+
+```{r}
+top_corr <- c('SalePrice', 
+              'OverallQual',
+              'GrLivArea',
+              'GarageArea', 
+              'YearBuilt',
+              'GarageCars',
+              'FullBath',
+              'TotalBsmtSF',
+              'X1stFlrSF',
+              'GarageYrBlt',
+              'MasVnrArea',
+              'LotFrontage'
+              
+              )
+
+train_num %>% 
+select(all_of(top_corr)) %>% 
+  cor(use = 'pairwise.complete.obs') %>% 
+  corrplot(method = 'number',
+           type = 'upper', 
+           diag = F,
+           tl.srt = 45)
+```
+
+### Missing Values
+
+-   There are three num variables that contain NAs.
+
+```{r}
+train_num %>% 
+  examine_na()
+```
+
+-   Reasonings for fixing numeric NAs explained in the google docs
+-   From the correlation between variables, the three 3 variables that we are considering removing have a moderate to high correlation with other existing top variables.
+-   Since these top variables will be retained in our model, removing the three three would not risk losing information.
+-   Also, MiscVal does not seem to contribute much infor, let's also just remove the feateure.
+-   Therefore, let's go ahead and remove them from both train and train_num dataset
+
+```{r}
+train %<>% 
+  select(-c(MasVnrArea, GarageYrBlt, LotFrontage, MiscVal))
+
+train_num %<>% 
+  select(-c(MasVnrArea, GarageYrBlt, LotFrontage, MiscVal))
+
+num_cols <- num_cols[-c(8, 25,2, 31)]
+```
+
+Okay, so all missing values have been resolved.
+
+### Outliers
+
+-   First, I would like to convert YearBuilt into HouseAge, and YrSold to Yrs_Since_Bought
+
+```{r}
+train_num %<>% 
+  mutate(HouseAge = max(YearBuilt) - YearBuilt,
+         Yrs_Since_Bought = max(YearBuilt) - YrSold,
+         Yrs_Since_Remod = max(YearBuilt) - YearRemodAdd) %>% 
+  select(-c(YearBuilt, YrSold, YearRemodAdd))
+
+```
+
+-   Next, we would create a function to fix outliers from the current numeric dataset. Though
+
+```{r}
+
+fix_outliers <- function(data) {
+  # Calculate Q1 and Q3
+  Q1 <- quantile(data, 0.25)
+  Q3 <- quantile(data, 0.75)
+
+  # Calculate the Interquartile Range
+  IQR <- Q3 - Q1
+
+  # Calculate lower and upper bounds for outliers
+  lower_bound <- Q1 - 1.5 * IQR
+  upper_bound <- Q3 + 1.5 * IQR
+
+  # Replace outliers with upper bound and lower bound
+  data_fixed <- ifelse(
+    data > upper_bound,
+    upper_bound, 
+    ifelse(
+      data < lower_bound,
+      lower_bound,
+      data
+    )
+  )
+  return(data_fixed)
+}
+```
+
+-   After we have created a function to fix outliers, let's apply it on all numeric features, except the SalesPrice
+
+```{r}
+outlier_fixed_num <-train_num %>% 
+  select(-SalePrice) %>% 
+  apply(2, fix_outliers)
+```
+
+-   This `apply` function would generate an matrix of output, thus, we need to convert it back to dataframe and add the SalePrice column back to the dataset
+
+```{r}
+
+outlier_fixed_num %<>% 
+  as.data.frame() %>% 
+  mutate(SalePrice = train_num$SalePrice)
+
+```
+
+Now, we can compare the distribution plots before and after fixing the outliers.
+
+-   Create a function to produce plots
+
+#### 
+
+```{r}
+plot_individual_boxplot <- function(data){
+  # Recreate a col names for numeric dataset again since we have modified some cols above
+  data %<>% 
+    select(-SalePrice) %>% 
+    mutate(SalePrice = train_num$SalePrice)
+  num_cols <- colnames(data)
+  # Iterate over the numeric columns and create a box plot for each
+  for (i in 1:length(num_cols)) {
+    boxplot(data[,i],
+            main = paste("Box Plot of",
+                         num_cols[i]),
+            xlab = "Feature",
+            ylab = "Values")
+  }
+}
+
+plot_individual_hist <- function(data){
+  # Recreate a col names for numeric dataset again since we have modified some cols above
+  data %<>% 
+    select(-SalePrice) %>% 
+    mutate(SalePrice = train_num$SalePrice)
+  num_cols <- colnames(data)
+  # Iterate over the numeric columns and create a box plot for each
+  for (i in 1:length(num_cols)) {
+    data[, i] %>%
+      pull() %>%
+      hist(
+        main = paste("Histogram of",
+                     num_cols[i]),
+        xlab = "Feature",
+        ylab = "Values"
+      )
+  }
+}
+
+```
+
+#### Boxplot Before Fixing Outliers
+
+```{r}
+# 
+# plot_individual_boxplot(train_num)  
+# 
+# plot_individual_hist(train_num)
+```
+
+#### Boxplot After Fixing outliers
+
+```{r}
+outlier_fixed_num %<>% 
+  as_tibble()
+
+plot_individual_boxplot(outlier_fixed_num)
+
+plot_individual_hist(outlier_fixed_num)
+```
+
+Obtain the summary of the data
+
+```{r}
+outlier_fixed_num %>% 
+  skim
+```
+
+# Princicpal Component Analysis
+
+-   There is a few group that we would like to examine their principal component analysis
+
+-   Quality: c(ExterQual, ExterCond, HeatingQC, KitchenQual, FireplaceQu, PoolQC, Fence, SaleCondition, Fireplaces, OverallQual, OverallCond)
+
+-   House size-related: c(LotArea, MasVnrArea, X1stFlrSF, X2ndFlrSF, GRLivArea, BsmtFinSF1, BsmtFinSF2, BsmtUnfSf, TotalBsmtSF, LotArea, GarageArea)
+
+```{r}
+comp_quality <-
+  c(
+    'ExterQual',
+    'ExterCond',
+    'HeatingQC',
+    'KitchenQual',
+    'FireplaceQu',
+    'PoolQC',
+    'SaleCondition',
+    'Fireplaces',
+    'OverallQual',
+    'OverallCond'
+  )
+
+comp_size <-
+  c(
+    'LotArea',
+    'MasVnrArea',
+    'X1stFlrSF',
+    'X2ndFlrSF',
+    'GRLivArea',
+    'BsmtFinSF1',
+    'BsmtFinSF2',
+    'BsmtUnfSf',
+    'TotalBsmtSF',
+    'LotArea',
+    'GarageArea'
+  )
+
+# First, we need to rejoin cat and num data together
+full_data <- outlier_fixed_num %>% 
+  select(-SalePrice) %>% # SalePrice is already in train_cat
+  cbind(train_cat) %>% 
+  as_tibble()
+
+  
+```
+
+### Ordinal variables
+
+Convert some categorical variables to ordinal numerical variables
+
+```{r}
+# ExterQual 
+  
+full_data$ExterQual <- fct_recode(full_data$ExterQual, 
+                                  '1' = 'Fa',
+                                  '2' = 'TA',
+                                  '3' = 'Gd',
+                                  '4' = 'Ex') %>% 
+  as.character() %>% 
+  as.numeric()
+# Extercond
+full_data$ExterCond <- fct_recode(full_data$ExterCond, 
+                                  '1' = 'Fa',
+                                  '1' = 'Po',
+                                  '2' = 'Gd',
+                                  '3' = 'TA',
+                                  '4' = 'Ex') %>% 
+  as.character() %>% 
+  as.numeric()
+# HeatingQC
+
+full_data$HeatingQC <- fct_recode(full_data$HeatingQC, 
+                                  '1' = 'Po',
+                                  '2' = 'Fa',
+                                  '3' = 'TA',
+                                  '4' = 'Gd',
+                                  '5' = 'Ex') %>% 
+  as.character() %>% 
+  as.numeric()
+# KitchenQual
+full_data$KitchenQual <- fct_recode(full_data$KitchenQual, 
+                                  '1' = 'Fa',
+                                  '2' = 'TA',
+                                  '3' = 'Gd',
+                                  '4' = 'Ex') %>% 
+  as.character() %>% 
+  as.numeric()
+
+#PoolQC
+full_data$PoolQC <- fct_recode(full_data$PoolQC,
+                               '1' = 'No Pool',
+                               '2' = 'Gd',
+                               '3' = 'Fa',
+                               '4' = 'Ex'
+                               ) %>% 
+  as.character() %>% 
+  as.numeric()
+#FireplaceQu
+full_data$FireplaceQu <- fct_recode(full_data$FireplaceQu, 
+                                  '1' = 'No Fireplace',
+                                  '1' = 'Po',
+                                  '2' = 'Fa',
+                                  '3' = 'Gd',
+                                  '3' = 'TA',
+                                  '4' = 'Ex') %>% 
+  as.character() %>% 
+  as.numeric()
+
+# SaleCondition
+full_data$SaleCondition <- fct_recode(
+  full_data$SaleCondition,
+  '1' = 'AdjLand',
+  '2' = 'Abnorml',
+  '2' = 'Family',
+  '3' = 'Alloca',
+  '3' = 'Normal',
+  '4' = 'Partial') %>% 
+  as.character() %>% 
+  as.numeric()
+
+# GarageFinish
+full_data$GarageFinish <- fct_recode(full_data$GarageFinish,
+                               '1' = 'No Garage',
+                               '2' = 'Unf',
+                               '3' = 'RFn',
+                               '4' = 'Fin'
+                               ) %>% 
+  as.character() %>% 
+  as.numeric()
+
+# BsmtQual
+
+full_data$BsmtQual<- fct_recode(full_data$BsmtQual,
+                               '1' = 'No Bsmt',
+                               '1' = 'Fa',
+                               '2' = 'TA',
+                               '3' = 'Gd',
+                               '4' = 'Ex'
+                               ) %>% 
+  as.character() %>% 
+  as.numeric()
+
+# BsmtCond 
+
+full_data$BsmtCond<- fct_recode(full_data$BsmtCond,
+                               '1' = 'No Bsmt',
+                               '1' = 'Fa',
+                               '1' = 'Po',
+                               '2' = 'TA',
+                               '3' = 'Gd'
+                               ) %>% 
+  as.character() %>% 
+  as.numeric()
+# BsmtExposure 
+full_data$BsmtExposure<- fct_recode(full_data$BsmtExposure,
+                               '1' = 'No Bsmt',
+                               '2' = 'No',
+                               '3' = 'Av',
+                               '3' = 'Mn',
+                               '4' = 'Gd'
+                               ) %>% 
+  as.character() %>% 
+  as.numeric()
+
+
+```
+
+# Lasso regresseion
+
+-   Before applying the lasso, we need to convert all categorical to dummy variables.
+
+-   We have already converted some of the features in the categorical variables group into ordinal variables, only part of the features in the train_cat should be converted into dummy variables
+
+### Dummy variables
+
+```{r}
+
+# Get the col names for all categorical vars
+original_cat <- train_cat %>% 
+  select(-SalePrice) %>% 
+  colnames()
+
+# create a variable to store ordinal var
+ordinal_var_name <- c('ExterQual', 
+                 'ExterCond',
+                 'HeatingQC',
+                 'KitchenQual',
+                 'PoolQC',
+                 'FireplaceQu',
+                 'SaleCondition',
+                 'GarageFinish',
+                 'BsmtQual',
+                 'BsmtCond',
+                 'BsmtExposure'
+                 )
+
+ordinal_var <- full_data %>% 
+  select(all_of(ordinal_var_name))
+
+
+# Dummy variables would exclude ordinal variables 
+dummy_vars <- train_cat %>% 
+  select(-all_of(c(ordinal_var_name, 'SalePrice')))
+
+
+# Obtain the dummy variables name to exclude them from the full_data
+
+dummy_vars_name <- dummy_vars %>% 
+  colnames()
+
+# Exclude these cat variables from the full_data (we will merge them back later)
+
+full_data %<>% 
+  select(-all_of(dummy_vars_name))
+
+# create a function to convert cat variables to dummy variables 
+
+convert_to_dummies <- function(df){
+  dummy_matrix <- model.matrix(~.-1, data = df) %>% 
+    data.frame()
+  return(dummy_matrix)
+}
+
+# convert cat variables to dummy variables 
+
+dummy_vars %<>%
+  convert_to_dummies()
+
+```
+
+### Scaling numeric features.
+
+-   In order to bring all the numeric features to the same scales, we would standardize all numeric and ordinal variables.
+
+```{r}
+SalePrice <- full_data$SalePrice
+
+# Perform the Z-score scaling
+scaled_full_data <- full_data %>% 
+  select(-SalePrice) %>% 
+  scale(
+    center = T,
+    scale = T
+  ) %>% 
+  as_tibble() %>% 
+  mutate(SalePrice = SalePrice)
+```
+
+-   For some numeric features, their values are changed to 0 when we performed the outliers fixing previously, which now lead to NAs after the scaling process.
+
+-   Most of these features do not appear to be very helpful for the prediction anyway, so we decide to remove them
+
+```{r}
+
+# Check NA in each column
+na_columns <- apply(scaled_full_data, 
+                    2, 
+                    function(x) any(is.na(x)))
+
+# Remove NA columns
+scaled_full_data <- scaled_full_data[, !na_columns]
+```
+
+-   After we have scaled the numeric features, we can merge the dummy variables data frame back to the numeric variables data frame.
+
+```{r}
+full_data <- cbind(scaled_full_data, 
+                   dummy_vars)
+```
+
+### Running Lasso Regression
+
+```{r}
+
+set.seed(123)
+
+# extract data for predictors and convert them into matrix
+predictors <- full_data %>% 
+  select(-SalePrice) %>% 
+  as.matrix()
+
+# Run a basic lasso regression. 
+lasso_model <- glmnet(predictors, 
+                      full_data$SalePrice, 
+                      alpha = 1, 
+                      standardize = F)
+
+
+
+# Choose the best regularization parameter (lambda) using cross-validation:
+cv_lasso <- cv.glmnet(predictors, 
+                      full_data$SalePrice, 
+                      alpha = 1, 
+                      standardize = F)
+
+# pick the lambda with 1 standard error from the best lambda 
+best_lambda <- cv_lasso$lambda.1se
+
+# Run the lasso regression with the updated lambda
+final_lasso_model <- glmnet(predictors, 
+                            full_data$SalePrice, 
+                            alpha = 1,
+                            standardize = F, 
+                            lambda = best_lambda)
+
+# Extract coefficients from the new model 
+lasso_coefficients <- coef(final_lasso_model)
+
+# extract the top variables
+lasso_retained_var <- (lasso_coefficients %>% 
+  as.matrix() %>% 
+  data.frame() %>%
+  filter(s0!=0) %>% 
+  row.names())[-1]
+```
+
+# Post-Scaled correlation
+
+-   Here, we would run the correlation matrix again on the scaled data, using only numeric features from the best variables extracted from lasso regression.
+
+-   Since all of them are now on the same scale, we can apply Pearson correlation instead of Spearman correlation.
+
+```{r}
+
+
+dummy_vars_name_full <- dummy_vars %>% 
+  colnames()
+
+num_best_var_names <- lasso_retained_var[!(lasso_retained_var %in% dummy_vars_name_full)]
+
+
+```
+
+-   Create a pearson correlation and visualization function
+
+```{r}
+pearson_cor <- function(frame, features) {
+  prs <- data.frame(feature = features,
+                    stringsAsFactors = FALSE)
+  
+  prs$pearson <- sapply(features, 
+                         function(f) cor(frame[[f]],
+                                         frame$SalePrice,
+                                         method = "pearson",
+                                         use = 'everything'))
+  
+  prs <- prs[order(prs$pearson),]
+  
+  ggplot(prs, 
+         aes(x = pearson, 
+             y = reorder(feature, pearson))) + 
+    geom_bar(stat = "identity") +
+    theme_minimal() +
+    xlab("Correlation") +
+    ylab("Feature") +
+    labs(title = 'Pearson Correlation Between Num Varibales vs Sales Price',
+         caption = 'Scaled Inputs')
+}
+
+pearson_cor(full_data, num_best_var_names)
+```
+
+-   Create a dataset that only include features resulted from the lasso regression
+
+```{r}
+lasso_retained_features_data <- full_data %>% 
+  select(all_of(lasso_retained_var)) %>% 
+  mutate(SalePrice = SalePrice)
+```
+
+# Principal Component Analysis
+
+## PCA1: Quality
+
+```{r}
+pca_qual <- lasso_retained_features_data %>% 
+  select(OverallQual,ExterQual, KitchenQual, BsmtQual) %>% 
+  prcomp(center = F,
+         scale = F)
+
+pca_qual %>% 
+  summary()
+
+```
+
+-   The first two components of the result capture 86% variance of all 4 features. We will be using these two components to represent the group
+
+```{r}
+# Extract the first and second PCA component of quality
+pca_qual_1 <- pca_qual$x[,1]
+pca_qual_2 <- pca_qual$x[,2]
+```
+
+## PCA2: Garage
+
+-   Both features are goods, and we do not want to lose any of them so we would combine them together in one PCA group.
+
+-   GarageCars, GarageArea
+
+```{r}
+pca_garage <- 
+  lasso_retained_features_data %>% 
+  select(GarageCars, GarageArea) %>% 
+  prcomp(center = F,
+         scale = F)
+
+
+pca_garage %>% 
+  summary()
+
+```
+
+-   The first principal component capture up to nearly 95% of variance in the two features. Thus, we would use this component to represent Garagecars and GarageArea.
+
+```{r}
+pca_garage_1 <- pca_garage$x[,1]
+```
+
+Let's merge these principal components to the full data so that it will be easier to add pca to the models later
+
+```{r}
+
+full_data %<>%
+  mutate(pca_qual_1 = pca_qual_1,
+         pca_qual_2 = pca_qual_2,
+         pca_garage_1 = pca_garage_1,
+         SalePrice = SalePrice) # just to move the label to the last col
+  
+```
+
+# Explanatory Analysis
+
+-   In this experiment, we will be exploring factors that can affect the SalePrice and testing the significance of some key factors by adding additional factors to the linear regression model.
+
+-   Key factors are chosen by applying both business's sense and its high correlation with the label.
+
+-   Variables used to test could be either key factors, important factors retained from lasso regression, and principal components of important factors.
+
+-   **In the report, we could describe more about the reason why we chose this features.**
+-   We would only add features that we consider as very strong to the model last, not at the begninning. 
+
+## Function's Customization
+
+Loading some packages needed to compile model results.
+
+```{r}
+library(sjPlot)
+library(sjmisc)
+library(sjlabelled)
+```
+
+### Linear Reg Auto func
+
+Custom function to automate regression model fitting
+
+-   Please provide this function with the dataset and the list of variables
+
+```{r}
+
+automate_regression <- function(data,variables) {
+  models <- list()
+  num_vars <- length(variables)
+  
+  for (i in 1:num_vars) {
+    formula_string <- paste('SalePrice', "~", paste(variables[1:i],
+                                                    collapse = " + ")
+                            )
+    formula <- as.formula(formula_string)
+    
+    models[[variables[i]]] <- lm(data = data, formula)
+  }
+  
+  return(models)
+}
+
+```
+
+### Export Output func
+
+-   Please provide the function with the list of variables and the list that stores the all the models.
+
+```{r}
+export_output <- function(model_list, variable_list){
+  suppressWarnings({
+  num_vars <- length(variable_list)
+  tab_model(model_list, dv.labels = rep("SalePrice", num_vars))
+  })
+}
+```
+
+## Regression 1: OverallQual
+
+```{r}
+variable_1 <- c("OverallQual", 
+               "FullBath", 
+               "HeatingQC", 
+               "CentralAirY", 
+               "Fireplaces",
+               "HouseAge",
+               'pca_garage_1',
+               "GrLivArea"
+               )
+# Run the linear regression on all models 
+model_1 <- automate_regression(data = full_data, 
+                               variables = variable_1)
+
+# export outputs
+
+output_model_1 <- export_output(model_1, variable_1)
+
+```
+
+-   Initial Adjsuted R squared: 0.667
+-   Highest Adjusted R squared: 0.834
+
+## Regression 2: GrLivArea
+
+```{r}
+
+variable_2 <- c("GrLivArea", 
+               "BsmtExposure", 
+               "FoundationPConc", 
+               "GarageCars", 
+               "Yrs_Since_Remod",
+               "pca_qual_1",
+               "pca_qual_2",
+               "HouseAge"
+               )
+
+model_2 <- automate_regression(data = full_data, 
+                               variables = variable_2)
+
+# export outputs
+
+output_model_2 <- export_output(model_2, variable_2)
+
+```
+
+-   GrLivArea does not explain variability in the SalePrice as good as the OverallQual
+-   Initial Adjsuted R squared: 0.522
+-   Highest Adjusted Rsquared: 0.825
+
+## Regression 3: HouseAge
+
+```{r}
+variable_3 <- c(
+  "HouseAge",
+  "Yrs_Since_Bought",
+  "SaleCondition",
+  "CentralAirY",
+  "TotRmsAbvGrd",
+  "Yrs_Since_Remod",
+  "OverallQual"
+)
+model_3 <- automate_regression(data = full_data, 
+                               variables = variable_3)
+
+# export outputs
+
+output_model_3 <- export_output(model_3, variable_3)
+
+```
+
+-   The model see a big jump in Adjusted R squared when CentralAirY was added
+
+-   Initial Adjsuted R squared: 0.345
+-   Highest Adjusted Rsquared: 0.766
+
+## Regression 4: Garage
+
+```{r}
+variable_4 <- c(
+  'pca_garage_1',
+  "BsmtQual",
+  "FullBath",
+  "MSSubClass",
+  "ExterCond",
+  "CentralAirY",
+  "LotArea",
+  "X1stFlrSF"
+)
+model_4 <- automate_regression(data = full_data, 
+                               variables = variable_4)
+# export outputs
+
+output_model_4 <- export_output(model_4, variable_4)
+
+```
+
+-   Initial Adjusted R squared: 0.477
+-   Highest Adjusted R squared: 0.825
+-   ExterCond is not significant
+
+
+## Regression 5: TotRmsAbvGrd
+
+```{r}
+variable_5 <- c(
+  'TotRmsAbvGrd',
+  'HeatingQC',
+  'KitchenQual',
+  'HouseAge',
+  'Yrs_Since_Remod',
+  'Fireplaces',
+  'pca_garage_1'
+)
+model_5 <- automate_regression(data = full_data, 
+                               variables = variable_5)
+# export outputs
+
+output_model_5 <- export_output(model_5, variable_5)
+```
+
+-   Initial Adjusted R squared: 0.294
+-   Highest Adjusted R squared: 0.769

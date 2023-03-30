@@ -1,0 +1,120 @@
+---
+title: "Class Demo for the Pilot Project"
+author: "Prof. Tao Li"
+date: "2023-02-28"
+output: pdf_document
+---
+
+# 01) Data Part  
+Import the original data:
+```{r}
+project_dt <- read.csv("train.csv", stringsAsFactors = TRUE)
+```
+
+Data Cleaning:
+```{r}
+# data cleaning
+# variable transformation
+```
+
+Data Split
+```{r}
+# 70% training vs. 30% validation
+sample_n <- round(nrow(project_dt)*0.7,0)
+set.seed(461)
+row_index <- sample(1:nrow(project_dt),sample_n)
+train <- project_dt[row_index,]
+valid <- project_dt[-row_index,]
+rm(row_index, sample_n) # clear project space
+```
+
+# 02) Modeling Part
+## Explotary analysis approach:
+For example, we want to assess the impact of the Lot Area size (*LotFrontage*, or *LotArea*) on the price of the house.
+
+Then we can consider the following models:
+Baseline: only include key predictors, no controls
+mod_0a: SalePrice ~ LotFrontage
+mod_0b: SalePrice ~ LotArea
+
+Additional models: add more control variables to check the consistency of the impact of the key variable on the target variable:
+Model1: add the age of the house (YearBuilt, or YearRmodAdd, or ...)
+Model2: further add the number of rooms
+Model3: further add the Heating status
+Model4: ...
+
+Generally, control variables should include key predictor (very important predictors) that influences the target variables according the previous studies (common senses)
+
+Example code: using LotFrontage to measure the key predictors
+```{r}
+mod_0a<-lm(data=project_dt, SalePrice~LotFrontage)
+mod_1a<-lm(data=project_dt, SalePrice~LotFrontage+YearBuilt)
+mod_2a<-lm(data=project_dt, SalePrice~LotFrontage+YearBuilt+TotRmsAbvGrd)
+mod_3a<-lm(data=project_dt, SalePrice~LotFrontage+YearBuilt+TotRmsAbvGrd+Heating)
+```
+
+Model Comparison
+```{r}
+library(sjPlot)
+library(sjmisc)
+library(sjlabelled)
+model_comparison<-tab_model(mod_0a, mod_1a, mod_2a, mod_3a)
+```
+
+After checking the results, we may want to redefine the baseline model by adding TotRmsAbvGrd into the baseline model. 
+Then, we also need to consider more control variables to test the consistency in the model performance (coef of the key predictor).
+
+
+## Predictive analysis approach:
+We can choose different types of models and different model structures. For the demonstration purposes, I consider a decision tree model and a linear regression from the stepwise selection.
+
+First Model:
+```{r}
+library(rpart)
+MODEL_1 <- rpart(data=train, 
+                 SalePrice~.,
+                 method="anova")
+```
+
+Second Model:
+```{r}
+full_lr <- lm(data=train,
+              SalePrice~LotFrontage+LotConfig+OverallQual+Heating)
+MODEL_2 <- step(full_lr, direction="back")
+```
+
+Then the key focus is to find a model that provides the best forecasting capability.
+
+In-sample performance:
+```{r}
+RMSE_M1.in <- sqrt(mean((train$SalePrice-predict(MODEL_1))^2))
+MAE_M1.in <- mean(abs(train$SalePrice-predict(MODEL_1)))
+
+RMSE_M2.in <- sqrt(mean((MODEL_2$residuals)^2))
+MAE_M2.in <- mean(abs(MODEL_2$residuals))
+```
+
+Out-of-sample performance:
+```{r}
+RMSE_M1.out <- sqrt(mean((valid$SalePrice-predict(MODEL_1, newdata=valid))^2))
+MAE_M1.out <- mean(abs(valid$SalePrice-predict(MODEL_1, newdata=valid)))
+RMSE_M2.out <- sqrt(mean((valid$SalePrice-predict(MODEL_2, newdata=valid))^2,na.rm=TRUE))
+MAE_M2.out <- mean(abs(valid$SalePrice-predict(MODEL_2, newdata=valid)),na.rm=TRUE)
+```
+
+```{r}
+mod1<- c(RMSE_M1.in, MAE_M1.in)
+mod2<- c(RMSE_M2.in, MAE_M2.in)
+in_sample <- cbind(mod1, mod2)
+```
+llllllllll.llllllll,llllllllllllllllllllll
+```{r}
+mod1<- c(RMSE_M1.out, MAE_M1.out)
+mod2<- c(RMSE_M2.out, MAE_M2.out)
+out_sample <- cbind(mod1, mod2)
+```
+
+```{r}
+in_sample
+out_sample
+```
