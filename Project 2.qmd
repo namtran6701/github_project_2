@@ -427,9 +427,9 @@ plot_individual_hist <- function(data){
 
 ```{r}
 # 
-# plot_individual_boxplot(train_num)  
-# 
-# plot_individual_hist(train_num)
+plot_individual_boxplot(train_num)
+
+plot_individual_hist(train_num)
 ```
 
 #### Boxplot After Fixing outliers
@@ -1051,3 +1051,9 @@ output_model_5 <- export_output(model_5, variable_5)
 
 -   Initial Adjusted R squared: 0.294
 -   Highest Adjusted R squared: 0.769
+
+
+
+```{r}
+print('test R in vscode and git')
+```
