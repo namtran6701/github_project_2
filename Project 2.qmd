@@ -179,7 +179,7 @@ Since we do not have to deal with issues of outliers in fixing missing values of
 
 Since we do not have to deal with issues of outliers in fixing missing values of categorical features, so we would start with categorical features first.
 
-### Numeric - Categorical Split 
+### Numeric - Categorical Split
 
 -   It's easier to split
 
@@ -588,7 +588,6 @@ full_data$BsmtExposure<- fct_recode(full_data$BsmtExposure,
 
 ```
 
-
 #### Dummy variables
 
 ```{r}
@@ -666,7 +665,7 @@ scaled_full_data <- full_data %>%
 
 -   For some numeric features, their values are changed to 0 when we performed the outliers fixing previously, which now lead to NAs after the scaling process.
 
--  Nevertheless, most of these features do not appear to be very helpful for the prediction anyway, so we decide to remove them.
+-   Nevertheless, most of these features do not appear to be very helpful for the prediction anyway, so we decide to remove them.
 
 ```{r}
 
@@ -691,7 +690,9 @@ full_data <- cbind(scaled_full_data,
 # Lasso regression
 
 -   Least Absolute Shrinkage and Selection Operator
--   This method helps reduce the dimensionality of a dataset and prevent overfitting. 
+
+-   This method helps reduce the dimensionality of a dataset and prevent overfitting.
+
 -   It works by adding a penalty term to the linear regresion objective funciton, which effectively shrinks some of the model's coefficient to **zero**
 
 -   Before applying the lasso, we need to convert all categorical to dummy variables.
@@ -733,7 +734,6 @@ final_lasso_model <- glmnet(predictors,
                             standardize = F, 
                             lambda = best_lambda)
 ```
-
 
 ## Variables Retained
 
@@ -1015,7 +1015,7 @@ variable_4 <- c(
   "MSSubClass",
   "ExterCond",
   "CentralAirY",
-  "LotArea",
+  "HeatingQC",
   "X1stFlrSF"
 )
 model_4 <- automate_regression(data = full_data, 
@@ -1038,8 +1038,8 @@ variable_5 <- c(
   'HeatingQC',
   'KitchenQual',
   'HouseAge',
+  'FireplaceQu',
   'Yrs_Since_Remod',
-  'Fireplaces',
   'pca_garage_1'
 )
 model_5 <- automate_regression(data = full_data, 
@@ -1051,8 +1051,6 @@ output_model_5 <- export_output(model_5, variable_5)
 
 -   Initial Adjusted R squared: 0.294
 -   Highest Adjusted R squared: 0.769
-
-
 
 ```{r}
 print('test R in vscode and git')
