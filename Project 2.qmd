@@ -794,7 +794,7 @@ pearson_cor <- function(frame, features) {
          caption = 'Scaled Inputs')
 }
 
-pearson_cor(full_data, num_best_var_names)
+pearson_cor(full_data, c(num_best_var_names, 'TotRmsAbvGrd'))
 ```
 
 -   Create a dataset that only include features resulted from the lasso regression
@@ -930,13 +930,13 @@ export_output <- function(model_list, variable_list){
 
 ```{r}
 variable_1 <- c("OverallQual", 
-               "FullBath", 
-               "HeatingQC", 
-               "CentralAirY", 
-               "Fireplaces",
-               "HouseAge",
-               'pca_garage_1',
-               "GrLivArea"
+                "GrLivArea",
+                'pca_garage_1',
+                "HouseAge",
+                "FullBath",
+                "CentralAirY",
+                "HeatingQC",
+               "Fireplaces"
                )
 # Run the linear regression on all models 
 model_1 <- automate_regression(data = full_data, 
@@ -951,19 +951,31 @@ output_model_1 <- export_output(model_1, variable_1)
 -   Initial Adjsuted R squared: 0.667
 -   Highest Adjusted R squared: 0.834
 
+```{r}
+full_data %>% 
+select(all_of(variable_1)) %>% 
+  cor(use = 'pairwise.complete.obs') %>% 
+  corrplot(method = 'number',
+           type = 'upper', 
+           diag = F,
+           tl.srt = 45)
+```
+
+
 ## Regression 2: GrLivArea
 
 ```{r}
 
-variable_2 <- c("GrLivArea", 
-               "BsmtExposure", 
-               "FoundationPConc", 
-               "GarageCars", 
-               "Yrs_Since_Remod",
-               "pca_qual_1",
-               "pca_qual_2",
-               "HouseAge"
-               )
+variable_2 <- c(
+  "GrLivArea",
+  "GarageCars",
+  "Yrs_Since_Remod",
+  "pca_qual_1",
+  "pca_qual_2",
+  "HouseAge",
+  "BsmtExposure",
+  "FoundationPConc"
+)
 
 model_2 <- automate_regression(data = full_data, 
                                variables = variable_2)
@@ -978,17 +990,27 @@ output_model_2 <- export_output(model_2, variable_2)
 -   Initial Adjsuted R squared: 0.522
 -   Highest Adjusted Rsquared: 0.825
 
+```{r}
+full_data %>% 
+select(all_of(variable_2)) %>% 
+  cor(use = 'pairwise.complete.obs') %>% 
+  corrplot(method = 'number',
+           type = 'upper', 
+           diag = F,
+           tl.srt = 45)
+```
+
 ## Regression 3: HouseAge
 
 ```{r}
 variable_3 <- c(
   "HouseAge",
-  "Yrs_Since_Bought",
-  "SaleCondition",
-  "CentralAirY",
-  "TotRmsAbvGrd",
+  "OverallQual",
   "Yrs_Since_Remod",
-  "OverallQual"
+  "Yrs_Since_Bought",
+  "TotRmsAbvGrd",
+  "SaleCondition",
+  "CentralAirY"
 )
 model_3 <- automate_regression(data = full_data, 
                                variables = variable_3)
@@ -1005,6 +1027,16 @@ output_model_3 <- export_output(model_3, variable_3)
 
 -   Highest Adjusted Rsquared: 0.766
 
+```{r}
+full_data %>% 
+select(all_of(variable_3)) %>% 
+  cor(use = 'pairwise.complete.obs') %>% 
+  corrplot(method = 'number',
+           type = 'upper', 
+           diag = F,
+           tl.srt = 45)
+```
+
 ## Regression 4: Garage
 
 ```{r}
@@ -1012,11 +1044,11 @@ variable_4 <- c(
   'pca_garage_1',
   "BsmtQual",
   "FullBath",
+  "X1stFlrSF",
   "MSSubClass",
   "ExterCond",
   "CentralAirY",
-  "HeatingQC",
-  "X1stFlrSF"
+  "HeatingQC"
 )
 model_4 <- automate_regression(data = full_data, 
                                variables = variable_4)
@@ -1030,17 +1062,29 @@ output_model_4 <- export_output(model_4, variable_4)
 -   Highest Adjusted R squared: 0.825
 -   ExterCond is not significant
 
+```{r}
+full_data %>% 
+select(all_of(variable_4)) %>% 
+  cor(use = 'pairwise.complete.obs') %>% 
+  corrplot(method = 'number',
+           type = 'upper', 
+           diag = F,
+           tl.srt = 45)
+```
+
+
 ## Regression 5: TotRmsAbvGrd
 
 ```{r}
 variable_5 <- c(
   'TotRmsAbvGrd',
+  'pca_garage_1',
+  'HouseAge',
+  'Yrs_Since_Remod',
   'HeatingQC',
   'KitchenQual',
-  'HouseAge',
-  'FireplaceQu',
-  'Yrs_Since_Remod',
-  'pca_garage_1'
+  'FireplaceQu'
+  
 )
 model_5 <- automate_regression(data = full_data, 
                                variables = variable_5)
@@ -1053,5 +1097,11 @@ output_model_5 <- export_output(model_5, variable_5)
 -   Highest Adjusted R squared: 0.769
 
 ```{r}
-print('test R in vscode and git')
+full_data %>% 
+select(all_of(variable_5)) %>% 
+  cor(use = 'pairwise.complete.obs') %>% 
+  corrplot(method = 'number',
+           type = 'upper', 
+           diag = F,
+           tl.srt = 45)
 ```
