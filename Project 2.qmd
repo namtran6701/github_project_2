@@ -18,7 +18,8 @@ pacman::p_load(pacman,
                plotly, 
                corrplot,
                Matrix,
-               glmnet)
+               glmnet,
+               performance)
 
 options(scipen = 999)
 ```
@@ -426,10 +427,10 @@ plot_individual_hist <- function(data){
 #### Boxplot Before Fixing Outliers
 
 ```{r}
-# 
-plot_individual_boxplot(train_num)
 
-plot_individual_hist(train_num)
+# plot_individual_boxplot(train_num)
+# 
+# plot_individual_hist(train_num)
 ```
 
 #### Boxplot After Fixing outliers
@@ -438,9 +439,9 @@ plot_individual_hist(train_num)
 outlier_fixed_num %<>% 
   as_tibble()
 
-plot_individual_boxplot(outlier_fixed_num)
-
-plot_individual_hist(outlier_fixed_num)
+# plot_individual_boxplot(outlier_fixed_num)
+# 
+# plot_individual_hist(outlier_fixed_num)
 
 ```
 
@@ -821,7 +822,8 @@ pca_qual %>%
 ```
 
 -   The first two components of the result capture 86% variance of all 4 features. We will be using these two components to represent the group
--   Since their sd is not on the same scale as other numeric feature, we would have to standardize them again. 
+-   Since their sd is not on the same scale as other numeric feature, we would have to standardize them again.
+
 ```{r}
 # Extract the first and second PCA component of quality
 pca_qual_1 <- pca_qual$x[,1]
@@ -854,7 +856,8 @@ pca_garage %>%
 ```
 
 -   The first principal component capture up to nearly 95% of variance in the two features. Thus, we would use this component to represent Garagecars and GarageArea.
--   Since their sd is not on the same scale as other numeric feature, we would have to standardize them again. 
+-   Since their sd is not on the same scale as other numeric feature, we would have to standardize them again.
+
 ```{r}
 pca_garage_1 <- pca_garage$x[,1]
 
@@ -937,6 +940,31 @@ export_output <- function(model_list, variable_list){
 }
 ```
 
+### Variable_corplot
+
+```{r}
+var_corplot <- function(data){
+  full_data %>% 
+select(all_of(data)) %>% 
+  cor(use = 'pairwise.complete.obs') %>% 
+  corrplot(method = 'number',
+           type = 'upper', 
+           diag = F,
+           tl.srt = 45)
+}
+```
+
+### Model's Metrics
+
+```{r}
+model_metrics <- function(simple_lm){
+  model_metrics <- model_performance(simple_lm, metrics = c("AIC","BIC","R2_adj", "RMSE"))
+
+  return(model_metrics)
+}
+```
+
+
 ## Regression 1: OverallQual
 
 ```{r}
@@ -960,16 +988,15 @@ output_model_1 <- export_output(model_1, variable_1)
 ```
 
 -   Initial Adjsuted R squared: 0.667
--   Highest Adjusted R squared: 0.834
 
 ```{r}
-full_data %>% 
-select(all_of(variable_1)) %>% 
-  cor(use = 'pairwise.complete.obs') %>% 
-  corrplot(method = 'number',
-           type = 'upper', 
-           diag = F,
-           tl.srt = 45)
+var_corplot(variable_1)
+```
+
+-   Calculate the RMSE
+
+```{r}
+model_metrics(model_1$OverallQual)
 ```
 
 ## Regression 2: GrLivArea
@@ -996,18 +1023,17 @@ output_model_2 <- export_output(model_2, variable_2)
 
 ```
 
--   GrLivArea does not explain variability in the SalePrice as good as the OverallQual
 -   Initial Adjsuted R squared: 0.522
--   Highest Adjusted Rsquared: 0.825
 
 ```{r}
-full_data %>% 
-select(all_of(variable_2)) %>% 
-  cor(use = 'pairwise.complete.obs') %>% 
-  corrplot(method = 'number',
-           type = 'upper', 
-           diag = F,
-           tl.srt = 45)
+var_corplot(variable_2)
+
+```
+
+-   Calculate the RMSE
+
+```{r}
+model_metrics(model_2$GrLivArea)
 ```
 
 ## Regression 3: HouseAge
@@ -1031,20 +1057,19 @@ output_model_3 <- export_output(model_3, variable_3)
 
 ```
 
--   The model see a big jump in Adjusted R squared when CentralAirY was added
 
--   Initial Adjsuted R squared: 0.345
+-   Initial Adjusted R squared: 0.345
 
--   Highest Adjusted Rsquared: 0.766
 
 ```{r}
-full_data %>% 
-select(all_of(variable_3)) %>% 
-  cor(use = 'pairwise.complete.obs') %>% 
-  corrplot(method = 'number',
-           type = 'upper', 
-           diag = F,
-           tl.srt = 45)
+var_corplot(variable_3)
+
+```
+
+-   Calculate the RMSE
+
+```{r}
+model_metrics(model_3$HouseAge)
 ```
 
 ## Regression 4: Garage
@@ -1071,17 +1096,17 @@ output_model_4 <- export_output(model_4, variable_4)
 ```
 
 -   Initial Adjusted R squared: 0.477
--   Highest Adjusted R squared: 0.825
--   ExterCond is not significant
 
 ```{r}
-full_data %>% 
-select(all_of(variable_4)) %>% 
-  cor(use = 'pairwise.complete.obs') %>% 
-  corrplot(method = 'number',
-           type = 'upper', 
-           diag = F,
-           tl.srt = 45)
+var_corplot(variable_4)
+
+```
+
+
+-   Calculate the RMSE
+
+```{r}
+model_metrics(model_4$pca_garage_1)
 ```
 
 ## Regression 5: TotRmsAbvGrd
@@ -1104,14 +1129,14 @@ output_model_5 <- export_output(model_5, variable_5)
 ```
 
 -   Initial Adjusted R squared: 0.294
--   Highest Adjusted R squared: 0.725
 
 ```{r}
-full_data %>% 
-select(all_of(variable_5)) %>% 
-  cor(use = 'pairwise.complete.obs') %>% 
-  corrplot(method = 'number',
-           type = 'upper', 
-           diag = F,
-           tl.srt = 45)
+var_corplot(variable_5)
+
+```
+
+-   Calculate the RMSE
+
+```{r}
+model_metrics(model_5$TotRmsAbvGrd)
 ```
