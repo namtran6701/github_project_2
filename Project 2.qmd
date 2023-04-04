@@ -192,7 +192,7 @@ train <- read.csv('march_17th_train.csv',
   mutate(SalePrice = log(SalePrice))
 ```
 
-Visualize the label distribution again. 
+Visualize the label distribution again.
 
 ```{r}
 train %>%
@@ -201,7 +201,6 @@ geom_histogram(aes(y = ..density..), binwidth = 0.1) +
 theme_minimal() +
 labs(y = "Density", title = "Log Distribution of SalePrice")
 ```
-
 
 Split categorical and numerical features
 
@@ -966,7 +965,7 @@ select(all_of(data)) %>%
            diag = F,
            tl.srt = 45)
 }
-?tab_model()
+
 ```
 
 ### Model's Metrics
@@ -978,7 +977,6 @@ model_metrics <- function(simple_lm){
   return(model_metrics)
 }
 ```
-
 
 ## Regression 1: OverallQual
 
@@ -1072,9 +1070,7 @@ output_model_3 <- export_output(model_3, variable_3)
 
 ```
 
-
 -   Initial Adjusted R squared: 0.345
-
 
 ```{r}
 var_corplot(variable_3)
@@ -1095,7 +1091,6 @@ variable_4 <- c(
   "BsmtQual",
   "FullBath",
   "X1stFlrSF",
-  "MSSubClass",
   "ExterCond",
   "CentralAirY",
   "GrLivArea"
@@ -1116,7 +1111,6 @@ output_model_4 <- export_output(model_4, variable_4)
 var_corplot(variable_4)
 
 ```
-
 
 -   Calculate the RMSE
 
