@@ -108,7 +108,7 @@ ggplot(train, aes(x = SalePrice)) +
                  binwidth = 12000,
                  color = "white",
                  fill = "black") +
-  geom_density(alpha = .2, fill="blue") +
+  # geom_density(alpha = .2, fill="blue") +
   # geom_line(data = normal_vals,
   #           aes(x = x,
   #               y = ..density..),
@@ -195,12 +195,11 @@ train <- read.csv('march_17th_train.csv',
 Visualize the label distribution again. 
 
 ```{r}
-train %>% 
-  ggplot(aes(x = SalePrice)) + 
-  geom_histogram(binwidth = 0.1) + 
-  theme_minimal() +
-  ylab('Density') + 
-  ggtitle(label = 'Log Distribution of SalePrice')
+train %>%
+ggplot(aes(x = SalePrice)) +
+geom_histogram(aes(y = ..density..), binwidth = 0.1) +
+theme_minimal() +
+labs(y = "Density", title = "Log Distribution of SalePrice")
 ```
 
 
@@ -814,6 +813,11 @@ pearson_cor(full_data, c(num_best_var_names, 'TotRmsAbvGrd'))
 lasso_retained_features_data <- full_data %>% 
   select(all_of(lasso_retained_var)) %>% 
   mutate(SalePrice = SalePrice)
+
+
+lasso_retained_features_data %>% 
+  select(-SalePrice) %>% 
+  colnames()
 ```
 
 # Principal Component Analysis
