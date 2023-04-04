@@ -159,7 +159,7 @@ qqline(train$SalePrice)
 
 -   Making the distribution more symmetric. Since the target variable is quite heavily skewed. A log transformation can make the distribution more symmetric and closer to a normal distribution, which can improve the performance of linear regression.
 
--   We will apply the log transformation below
+-   We will apply the log transformation below (in the Num-Cat Split section)
 
 ## Features Exploration
 
@@ -182,8 +182,6 @@ Since we do not have to deal with issues of outliers in fixing missing values of
 
 ### Numeric - Categorical Split
 
--   It's easier to split
-
 Import new data that Juliette has fixed into R, and apply log transformation on the label.
 
 ```{r}
@@ -193,6 +191,18 @@ train <- read.csv('march_17th_train.csv',
   select(-c(Id, MiscFeature)) %>% 
   mutate(SalePrice = log(SalePrice))
 ```
+
+Visualize the label distribution again. 
+
+```{r}
+train %>% 
+  ggplot(aes(x = SalePrice)) + 
+  geom_histogram(binwidth = 0.1) + 
+  theme_minimal() +
+  ylab('Density') + 
+  ggtitle(label = 'Log Distribution of SalePrice')
+```
+
 
 Split categorical and numerical features
 
