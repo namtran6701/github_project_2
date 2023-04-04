@@ -952,6 +952,7 @@ select(all_of(data)) %>%
            diag = F,
            tl.srt = 45)
 }
+?tab_model()
 ```
 
 ### Model's Metrics
@@ -1126,6 +1127,7 @@ model_5 <- automate_regression(data = full_data,
 # export outputs
 
 output_model_5 <- export_output(model_5, variable_5)
+
 ```
 
 -   Initial Adjusted R squared: 0.294
